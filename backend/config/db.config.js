@@ -1,7 +1,5 @@
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-
-dotenv.config();
+const mongoose = require("mongoose");
+require("dotenv").config();  // ✅ Load biến môi trường từ `.env`
 
 const connectDB = async () => {
   try {
@@ -12,4 +10,4 @@ const connectDB = async () => {
   }
 };
 
-export default connectDB;
+module.exports = connectDB;  // ✅ Dùng `module.exports` thay vì `export default`

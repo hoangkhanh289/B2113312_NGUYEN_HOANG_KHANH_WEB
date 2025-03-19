@@ -1,9 +1,10 @@
-import express from "express";
-import { register, login } from "../controllers/user.controller.js";
+const express = require("express");
+const { register, login } = require("../controllers/user.controller");
+const { authenticate, isAdmin } = require("../middlewares/authenticate");
 
 const router = express.Router();
 
-router.post("/register", register);
+router.post("/register", authenticate, isAdmin, register); // Chỉ admin mới có quyền đăng ký user
 router.post("/login", login);
 
-export default router;
+module.exports = router;

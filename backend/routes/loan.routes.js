@@ -1,9 +1,9 @@
-import express from "express";
-import { borrowBook } from "../controllers/loan.controller.js";
+const express = require("express");
+const { borrowBook, returnBook } = require("../controllers/loan.controller");
 
 const router = express.Router();
 
-router.post("/", borrowBook);
+router.post("/borrow", borrowBook);
+router.post("/return", returnBook);
 
-export default router;
-
+module.exports = router;

@@ -1,10 +1,10 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const loanSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   bookId: { type: mongoose.Schema.Types.ObjectId, ref: "Book", required: true },
-  loanDate: { type: Date, default: Date.now },
-  returnDate: { type: Date },
+  ngayMuon: { type: Date, default: Date.now, required: true },
+  ngayTra: { type: Date },
 });
 
-export default mongoose.model("Loan", loanSchema);
+module.exports = mongoose.model("Loan", loanSchema);

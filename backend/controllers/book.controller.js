@@ -1,6 +1,6 @@
-import Book from "../models/book.model.js";
+const Book = require("../models/book.model.js");
 
-export const addBook = async (req, res) => {
+const addBook = async (req, res) => {
   try {
     const book = new Book(req.body);
     await book.save();
@@ -10,7 +10,14 @@ export const addBook = async (req, res) => {
   }
 };
 
-export const getBooks = async (req, res) => {
-  const books = await Book.find();
-  res.json(books);
+const getBooks = async (req, res) => {
+  try {
+    const books = await Book.find();
+    res.json(books);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch books" });
+  }
 };
+
+// Xuất các hàm controller theo CommonJS
+module.exports = { addBook, getBooks };
