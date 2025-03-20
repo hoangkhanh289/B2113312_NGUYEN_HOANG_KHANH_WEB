@@ -76,6 +76,11 @@ app.get('/protected', authenticateToken, (req, res) => {
   res.json({ message: 'This is a protected route!', user: req.user });
 });
 
+// Api add_bookbook
+app.use("/api/books", require("./routes/book.routes.js"));
+
+
+
 // Khởi động server
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
