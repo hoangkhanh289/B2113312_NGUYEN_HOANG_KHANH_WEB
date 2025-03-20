@@ -5,8 +5,10 @@ const bookSchema = new mongoose.Schema({
   donGia: { type: Number, required: true },
   soQuyen: { type: Number, required: true },
   nguonGocTacGia: { type: String },
-  nhaXuatBan: { type: mongoose.Schema.Types.ObjectId, ref: "Publisher" },
-  thuMucAnh: { type: String, required: true }, // Lưu đường dẫn thư mục ảnh
+  nhaXuatBan: { type: String },
+  thuMucAnh: { type: String, default: "" },  // Đặt giá trị mặc định cho thuMucAnh
 });
 
-module.exports = mongoose.model("Book", bookSchema);
+const Book = mongoose.model("Book", bookSchema);
+
+module.exports = Book;

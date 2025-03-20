@@ -9,6 +9,13 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3001
-  }
+    port: 3001,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',  // Địa chỉ của backend API của bạn
+        changeOrigin: true,  // Thay đổi tiêu đề 'Origin' của yêu cầu
+        secure: false,  // Chỉ cần nếu backend của bạn không dùng HTTPS
+      },
+    },
+  },
 })

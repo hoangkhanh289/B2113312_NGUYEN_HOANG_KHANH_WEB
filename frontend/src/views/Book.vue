@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from "vue";
-import { api } from "../api"; // Import API
+import { api } from "../api"; // Import API của bạn (giả sử đã cấu hình trong api.js)
 
 const books = ref([]);
 
@@ -18,7 +18,10 @@ onMounted(async () => {
   <div>
     <h1>Danh sách sách</h1>
     <ul>
-      <li v-for="book in books" :key="book.id">{{ book.title }}</li>
+      <!-- Hiển thị danh sách sách -->
+      <li v-for="book in books" :key="book.id">
+        {{ book.tenSach }} - {{ book.donGia }} VNĐ
+      </li>
     </ul>
   </div>
 </template>

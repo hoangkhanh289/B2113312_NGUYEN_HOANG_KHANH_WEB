@@ -1,6 +1,5 @@
 frontend/
-│── public/  
-│   ├── index.htmlhtml        
+│── public/     
 │   ├── style.csscss    
 │── src/
 │   ├── api/           
@@ -20,5 +19,6 @@ frontend/
 │   ├── store/          
 │   ├── App.vue         
 │   ├── main.js      
+├── index.htmlhtml     
 │── package.json      
 │── vite.config.js      

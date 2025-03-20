@@ -5,12 +5,16 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs'); // Thêm bcryptjs để mã hóa mật khẩu
 const cors = require('cors');
 
+
 // Khởi tạo dotenv để đọc các biến môi trường từ file .env
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000; // Cổng mặc định là 3000 nếu không có trong .env
+const path = require('path');
 
+// Cung cấp ảnh tĩnh từ thư mục Static
+app.use('/Static', express.static(path.join(__dirname, 'Static')));
 // Middleware
 app.use(express.json()); // Parse dữ liệu JSON từ request body
 app.use(cors()); // Cấu hình CORS (nếu cần)
@@ -78,6 +82,18 @@ app.get('/protected', authenticateToken, (req, res) => {
 
 // Api add_bookbook
 app.use("/api/books", require("./routes/book.routes.js"));
+
+// Route kiểm tra ảnh có tồn tại hay không (có thể không cần nữa)
+app.get("/books/:id/:imageName", (req, res) => {
+    const { id, imageName } = req.params;
+    const imagePath = path.join(__dirname, 'Static', 'book', id, imageName); // Thay E:/books thành đường dẫn tệp tương đối
+
+    res.sendFile(imagePath, (err) => {
+        if (err) {
+            res.status(404).send("Hình ảnh không tồn tại");
+        }
+    });
+});
 
 
 

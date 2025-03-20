@@ -1,43 +1,48 @@
 <template>
     <div>
         <h2>Đăng nhập</h2>
-        <form @submit.prevent="handleLogin">
-            <input v-model="username" placeholder="Tài khoản" required />
-            <input v-model="password" type="password" placeholder="Mật khẩu" required />
+        <form @submit.prevent="login">
+            <input type="text" v-model="username" placeholder="Tên người dùng" required />
+            <input type="password" v-model="password" placeholder="Mật khẩu" required />
             <button type="submit">Đăng nhập</button>
         </form>
-        <p v-if="errorMessage" style="color: red">{{ errorMessage }}</p>
     </div>
 </template>
 
 <script>
 import { ref } from "vue";
-import userApi from "@/api/userApi";
 import { useRouter } from "vue-router";
 
 export default {
     setup() {
         const username = ref("");
         const password = ref("");
-        const errorMessage = ref("");
         const router = useRouter();
 
-        const handleLogin = async () => {
+        const login = async () => {
             try {
-                const response = await userApi.login({
-                    username: username.value,
-                    password: password.value,
+                // Gọi API để đăng nhập (thực tế cần gửi dữ liệu tới backend để xác thực)
+                const response = await fetch("http://localhost:3000/api/users/login", {  // Đảm bảo URL đúng
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: username.value, password: password.value }),
                 });
 
-                localStorage.setItem("token", response.data.token);
-                router.push("/user"); // Chuyển hướng sau khi đăng nhập thành công
+                if (response.ok) {
+                    const data = await response.json();
+                    // Lưu token vào localStorage
+                    localStorage.setItem("token", data.token);
+                    router.push("/"); // Điều hướng về trang chủ sau khi đăng nhập thành công
+                } else {
+                    alert("Đăng nhập thất bại");
+                }
             } catch (error) {
-                console.error("Lỗi đăng nhập:", error.response?.data || error.message);
-                errorMessage.value = error.response?.data?.message || "Đăng nhập thất bại!";
+                console.error("Lỗi khi đăng nhập:", error);
             }
         };
 
-        return { username, password, handleLogin, errorMessage };
+
+        return { username, password, login };
     },
 };
 </script>
