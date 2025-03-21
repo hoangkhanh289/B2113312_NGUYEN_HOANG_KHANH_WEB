@@ -1,128 +1,174 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const Book = require("../models/book.model.js");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const Book = require("../models/book.model");
 
-// Thiết lập multer để xử lý ảnh upload
+// 🔹 Multer Configuration for Image Upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const bookId = req.params.id || 'temp'; // Dùng ID sách nếu có hoặc 'temp' khi chưa có ID
-    const dir = path.join(__dirname, `../Static/book/${bookId}`);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    const { id } = req.params; // Book ID from route
+    if (!id) {
+      return cb(new Error("Thiếu ID sách"), null);
     }
-    cb(null, dir); // Định vị thư mục lưu ảnh
-  },
-  filename: (req, file, cb) => {
-    cb(null, 'book_cover.png'); // Đặt tên tĩnh cho ảnh (có thể thay đổi nếu muốn)
-  }
-});
 
-const upload = multer({ storage: storage });
-
-// Thêm sách và lưu ảnh (dùng upload ảnh)
-const addBook = async (req, res) => {
-  try {
-    const { tenSach, donGia, soQuyen, nguonGocTacGia, nhaXuatBan } = req.body;
-    
-    // Thêm sách vào cơ sở dữ liệu
-    const book = new Book({ tenSach, donGia, soQuyen, nguonGocTacGia, nhaXuatBan });
-    await book.save();
-    
-    // Tạo thư mục lưu ảnh cho sách
-    const bookDir = path.join(__dirname, `../Static/book/${book._id}`);
+    const bookDir = path.join(__dirname, "../Static/book", id); // Consistent path
     if (!fs.existsSync(bookDir)) {
       fs.mkdirSync(bookDir, { recursive: true });
     }
+    cb(null, bookDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, "book_cover.png"); // Fixed filename
+  },
+});
 
-    // Trả về thông tin sách đã tạo, bao gồm đường dẫn ảnh
-    const imagePath = `/Static/book/${book._id}/book_cover.png`;  // Đảm bảo đường dẫn ảnh đúng
-    res.status(201).json({ ...book.toObject(), imagePath }); // Trả về thông tin sách với imagePath
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Đã xảy ra lỗi trong quá trình thêm sách" });
-  }
-};
+const upload = multer({ storage });
 
-
-// Cập nhật thông tin sách
-const updateBook = async (req, res) => {
+// 🔹 API: Create a Book (Admin or Boss only)
+// Trong addBook
+const addBook = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { tenSach, donGia, soQuyen, nguonGocTacGia, nhaXuatBan } = req.body;
-
-    // Kiểm tra xem sách có tồn tại không
-    const existingBook = await Book.findById(id);
-    if (!existingBook) {
-      return res.status(404).json({ error: "Sách không tồn tại!" });
-    }
-
-    // Kiểm tra tên sách trùng lặp
-    const duplicateBook = await Book.findOne({
-      tenSach: { $regex: `^${tenSach}$`, $options: "i" },
-      _id: { $ne: id }, // Loại trừ sách đang cập nhật
+    console.log("Received request:", {
+      method: req.method,
+      headers: req.headers,
+      body: req.body,
     });
 
+    if (!req.body) {
+      return res.status(400).json({ error: "Request body is missing or invalid" });
+    }
+
+    const { tenSach, donGia, soQuyen, nguonGocTacGia, nhaXuatBan } = req.body;
+
+    if (!tenSach || !donGia || !soQuyen) {
+      return res.status(400).json({ error: "Thiếu thông tin sách: tenSach, donGia, soQuyen là bắt buộc" });
+    }
+
+    const duplicateBook = await Book.findOne({ tenSach });
     if (duplicateBook) {
       return res.status(400).json({ error: "Tên sách đã tồn tại!" });
     }
 
-    // Cập nhật sách
-    const updatedBook = await Book.findByIdAndUpdate(
-      id,
-      { tenSach, donGia, soQuyen, nguonGocTacGia, nhaXuatBan },
-      { new: true }
-    );
+    const book = new Book({
+      tenSach,
+      donGia,
+      soQuyen,
+      nguonGocTacGia: nguonGocTacGia || "",
+      nhaXuatBan: nhaXuatBan || "",
+      image: "/Static/book/default_cover.png", // Ảnh mặc định ban đầu
+    });
 
-    res.json(updatedBook);
+    await book.save();
+
+    const bookDir = path.join(__dirname, "../Static/book", book._id.toString());
+    if (!fs.existsSync(bookDir)) {
+      fs.mkdirSync(bookDir, { recursive: true });
+    }
+    book.image = `/Static/book/${book._id}/book_cover.png`; // Cập nhật đường dẫn ảnh sau khi có _id
+    await book.save();
+
+    res.status(201).json({ message: "Sách đã được tạo", book });
   } catch (error) {
-    res.status(500).json({ error: "Failed to update book" });
+    console.error("❌ Error creating book:", error);
+    res.status(500).json({ error: "Lỗi khi thêm sách", details: error.message });
   }
 };
 
-// Xóa sách và thư mục ảnh
-const deleteBook = async (req, res) => {
+// Trong uploadBookImage
+const uploadBookImage = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Tìm sách theo ID và xóa
+
     const book = await Book.findById(id);
     if (!book) {
       return res.status(404).json({ error: "Sách không tồn tại!" });
     }
 
-    await book.remove();
-
-    // Xóa thư mục chứa ảnh
-    const bookDir = path.join(__dirname, `../Static/book/${id}`);
-    
-    if (fs.existsSync(bookDir)) {
-      fs.rmSync(bookDir, { recursive: true });
+    if (!req.file) {
+      return res.status(400).json({ error: "Vui lòng chọn ảnh để upload" });
     }
 
-    res.json({ message: "Sách đã được xóa thành công" });
+    book.image = `/Static/book/${id}/book_cover.png`;
+    await book.save();
+
+    res.status(200).json({
+      message: "Ảnh đã được upload",
+      imagePath: book.image,
+    });
   } catch (error) {
-    res.status(500).json({ error: "Lỗi khi xóa sách" });
+    console.error("❌ Error uploading book image:", error);
+    res.status(500).json({ error: "Lỗi khi upload ảnh", details: error.message });
   }
 };
-// Lấy danh sách sách
+
+// 🔹 API: Update Book (Admin or Boss only)
+const updateBook = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tenSach, donGia, soQuyen, nguonGocTacGia, nhaXuatBan } = req.body;
+
+    // Check if book exists
+    const existingBook = await Book.findById(id);
+    if (!existingBook) {
+      return res.status(404).json({ error: "Sách không tồn tại!" });
+    }
+
+    // Update only provided fields
+    const updatedBook = await Book.findByIdAndUpdate(
+      id,
+      {
+        tenSach: tenSach || existingBook.tenSach,
+        donGia: donGia || existingBook.donGia,
+        soQuyen: soQuyen || existingBook.soQuyen,
+        nguonGocTacGia: nguonGocTacGia || existingBook.nguonGocTacGia,
+        nhaXuatBan: nhaXuatBan || existingBook.nhaXuatBan,
+      },
+      { new: true } // Return updated document
+    );
+
+    res.json({ message: "Sách đã được cập nhật", book: updatedBook });
+  } catch (error) {
+    console.error("❌ Error updating book:", error);
+    res.status(500).json({ error: "Lỗi khi cập nhật sách", details: error.message });
+  }
+};
+
+// 🔹 API: Delete Book and Image (Admin or Boss only)
+const deleteBook = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if book exists
+    const book = await Book.findById(id);
+    if (!book) {
+      return res.status(404).json({ error: "Sách không tồn tại!" });
+    }
+
+    // Delete book from database
+    await book.deleteOne();
+
+    // Remove book image directory
+    const bookDir = path.join(__dirname, "../Static/book", id);
+    if (fs.existsSync(bookDir)) {
+      await fs.promises.rm(bookDir, { recursive: true, force: true });
+    }
+
+    res.json({ message: "Sách đã được xóa" });
+  } catch (error) {
+    console.error("❌ Error deleting book:", error);
+    res.status(500).json({ error: "Lỗi khi xóa sách", details: error.message });
+  }
+};
+
+// 🔹 API: Get All Books (Public or Authenticated)
 const getBooks = async (req, res) => {
   try {
     const books = await Book.find();
-    
-    // Duyệt qua từng sách để thêm đường dẫn ảnh
-    const booksWithImages = books.map(book => {
-      const imagePath = `/Static/book/${book._id}/book_cover.png`; // Đường dẫn ảnh sẽ được xử lý trên frontend
-      return {
-        ...book.toObject(),
-        imagePath
-      };
-    });
-
-    res.json(booksWithImages);
+    res.json(books);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch books" });
+    console.error("❌ Error fetching books:", error);
+    res.status(500).json({ error: "Lỗi khi lấy danh sách sách", details: error.message });
   }
 };
 
-module.exports = { addBook, getBooks, updateBook, deleteBook, upload };
+module.exports = { addBook, uploadBookImage, getBooks, updateBook, deleteBook, upload };

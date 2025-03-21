@@ -22,7 +22,7 @@ export default {
         const login = async () => {
             try {
                 // Gọi API để đăng nhập (thực tế cần gửi dữ liệu tới backend để xác thực)
-                const response = await fetch("http://localhost:3000/api/users/login", {  // Đảm bảo URL đúng
+                const response = await fetch("http://localhost:3000/api/auth/login", {  // Đảm bảo URL đúng
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ username: username.value, password: password.value }),
