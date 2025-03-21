@@ -8,6 +8,7 @@ const Boss = require("./models/boss.model");
 const Admin = require("./models/admin.model");
 const User = require("./models/user.model");
 const Book = require("./models/book.model");
+const bookRoutes = require("./routes/book.routes");
 const { authenticateToken, isAdmin, isBoss } = require("./middleware/auth"); // Import middleware
 const jwt = require("jsonwebtoken");
 const app = express();
@@ -349,7 +350,11 @@ app.delete("/api/admin-users/:id", authenticateToken, isBoss, async (req, res) =
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
+// Routes
+app.use("/api/books", bookRoutes);
 
+// Static files (để truy cập ảnh)
+app.use("/Static", express.static(path.join(__dirname, "Static")));
 // Start server
 app.listen(port, () => {
   console.log(`✅ Server is running on http://localhost:${port}`);

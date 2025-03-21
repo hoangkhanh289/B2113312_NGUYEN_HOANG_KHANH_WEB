@@ -3,29 +3,25 @@ const path = require("path");
 const fs = require("fs");
 const Book = require("../models/book.model");
 
-// 🔹 Multer Configuration for Image Upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const { id } = req.params; // Book ID from route
+    const { id } = req.params;
     if (!id) {
       return cb(new Error("Thiếu ID sách"), null);
     }
-
-    const bookDir = path.join(__dirname, "../Static/book", id); // Consistent path
+    const bookDir = path.join(__dirname, "../Static/book", id);
     if (!fs.existsSync(bookDir)) {
       fs.mkdirSync(bookDir, { recursive: true });
     }
     cb(null, bookDir);
   },
   filename: (req, file, cb) => {
-    cb(null, "book_cover.png"); // Fixed filename
+    cb(null, "book_cover.png");
   },
 });
 
 const upload = multer({ storage });
 
-// 🔹 API: Create a Book (Admin or Boss only)
-// Trong addBook
 const addBook = async (req, res) => {
   try {
     console.log("Received request:", {
@@ -55,7 +51,7 @@ const addBook = async (req, res) => {
       soQuyen,
       nguonGocTacGia: nguonGocTacGia || "",
       nhaXuatBan: nhaXuatBan || "",
-      image: "/Static/book/default_cover.png", // Ảnh mặc định ban đầu
+      image: "/Static/book/default_cover.png",
     });
 
     await book.save();
@@ -64,7 +60,7 @@ const addBook = async (req, res) => {
     if (!fs.existsSync(bookDir)) {
       fs.mkdirSync(bookDir, { recursive: true });
     }
-    book.image = `/Static/book/${book._id}/book_cover.png`; // Cập nhật đường dẫn ảnh sau khi có _id
+    book.image = `/Static/book/${book._id}/book_cover.png`;
     await book.save();
 
     res.status(201).json({ message: "Sách đã được tạo", book });
@@ -74,7 +70,6 @@ const addBook = async (req, res) => {
   }
 };
 
-// Trong uploadBookImage
 const uploadBookImage = async (req, res) => {
   try {
     const { id } = req.params;
