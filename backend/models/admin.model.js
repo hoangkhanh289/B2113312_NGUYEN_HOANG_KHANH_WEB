@@ -5,7 +5,7 @@ const adminSchema = new mongoose.Schema({
   MSNV: { type: String, required: true, unique: true },
   HoTenNV: { type: String, required: true },
   password: { type: String, required: true },
-  ChucVu: { type: String, enum: ["admin"], required: true },
+  ChucVu: { type: String, required: true, unique: true },
   DiaChi: { type: String, required: true },
   SoDienThoai: { type: String, required: true, unique: true }
 });

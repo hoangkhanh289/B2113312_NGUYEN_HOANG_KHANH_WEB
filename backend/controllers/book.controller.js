@@ -24,11 +24,6 @@ const upload = multer({ storage });
 
 const addBook = async (req, res) => {
   try {
-    console.log("Received request:", {
-      method: req.method,
-      headers: req.headers,
-      body: req.body,
-    });
 
     if (!req.body) {
       return res.status(400).json({ error: "Request body is missing or invalid" });
@@ -158,7 +153,15 @@ const deleteBook = async (req, res) => {
 // 🔹 API: Get All Books (Public or Authenticated)
 const getBooks = async (req, res) => {
   try {
-    const books = await Book.find();
+    const { tenSach, nguonGocTacGia, nhaXuatBan } = req.query;
+
+    // Tạo query object
+    const query = {};
+    if (tenSach) query.tenSach = { $regex: tenSach, $options: "i" }; // Không phân biệt hoa/thường
+    if (nguonGocTacGia) query.nguonGocTacGia = { $regex: nguonGocTacGia, $options: "i" };
+    if (nhaXuatBan) query.nhaXuatBan = { $regex: nhaXuatBan, $options: "i" };
+
+    const books = await Book.find(query);
     res.json(books);
   } catch (error) {
     console.error("❌ Error fetching books:", error);

@@ -1,37 +1,49 @@
 <template>
-  <div class="book-list">
+  <div class="book-list" :class="{ 'locked': activeBook !== null }">
     <div class="header">
-      <h1>Danh Sách Sách</h1>
-      <div class="menu-toggle" @click="toggleMenu" v-if="role">
-        <span class="hamburger">☰</span>
-      </div>
-      <div v-if="isMenuOpen" class="dropdown-menu">
-        <ul v-if="role === 'user'">
-          <li @click="selectCategory('Home')">Home</li>
-          <li @click="selectCategory('Mượn sách')">Mượn sách</li>
-          <li @click="selectCategory('User')">User</li>
-          <li @click="selectCategory('Đăng xuất')">Đăng xuất</li>
-        </ul>
-        <ul v-if="role === 'admin'">
-          <li @click="selectCategory('Home')">Home</li>
-          <li @click="selectCategory('Duyệt Mượn sách')">Duyệt Mượn sách</li>
-          <li @click="selectCategory('Admin')">Admin</li>
-          <li @click="selectCategory('Quản lý User')">Quản lý User</li>
-          <li @click="selectCategory('Quản lý Sách')">Quản lý Sách</li>
-          <li @click="selectCategory('Đăng xuất')">Đăng xuất</li>
-        </ul>
-        <ul v-if="role === 'boss'">
-          <li @click="selectCategory('Home')">Home</li>
-          <li @click="selectCategory('Quản lý Admin&User')">Quản lý Admin&User</li>
-          <li @click="selectCategory('Quản lý Sách')">Quản lý Sách</li>
-          <li @click="selectCategory('Đăng xuất')">Đăng xuất</li>
-        </ul>
+      <div class="search-form">
+        <form @submit.prevent="searchBooks" class="search-form-container">
+          <div class="form-group">
+            <input
+              type="text"
+              id="tenSach"
+              v-model="search.tenSach"
+              placeholder="Nhập tên sách"
+            />
+          </div>
+          <div class="form-group">
+            <input
+              type="text"
+              id="tacGia"
+              v-model="search.tacGia"
+              placeholder="Nhập tác giả"
+            />
+          </div>
+          <div class="form-group">
+            <input
+              type="text"
+              id="nguonGocTacGia"
+              v-model="search.nguonGocTacGia"
+              placeholder="Nhập nguồn gốc tác giả"
+            />
+          </div>
+          <button type="submit" class="search-btn">Tìm kiếm</button>
+        </form>
       </div>
     </div>
 
-    <div v-if="books.length === 0" class="no-books">Không có sách nào để hiển thị</div>
+    <div v-if="filteredBooks.length === 0" class="no-books">Không có sách nào để hiển thị</div>
     <div v-else class="book-cards">
-      <div v-for="book in filteredBooks" :key="book._id" class="book-card">
+      <div
+        v-for="book in filteredBooks"
+        :key="book._id"
+        class="book-card"
+        @click="handleClick(book._id)"
+        @touchstart="startHold(book._id)"
+        @touchend="endHold"
+        @touchcancel="endHold"
+        :class="{ 'active': activeBook === book._id }"
+      >
         <div class="book-image">
           <img
             :src="getImageUrl(book.image)"
@@ -40,34 +52,55 @@
           />
         </div>
         <div class="book-info">
-          <h3>{{ book.tenSach }}</h3>
-          <p class="price">{{ formatPrice(book.donGia) }} VNĐ</p>
-          <p>{{ book.soQuyen }} Quyển</p>
+          <div class="book-details">
+            <span class="book-title">{{ book.tenSach }}</span>
+            <span class="book-author">{{ book.tacGia }}</span>
+            <span class="book-origin">{{ book.nguonGocTacGia }}</span>
+          </div>
+          <div class="price-container">
+            <span class="price">{{ formatPrice(book.donGia) }} VNĐ</span>
+            <span class="quantity">Còn {{ book.soQuyen }} quyển</span>
+          </div>
+          <div v-if="activeBook === book._id" class="button-group">
+            <button class="borrow-btn" @click="registerBorrow(book._id)">
+              Đăng ký mượn
+            </button>
+            <button class="cancel-btn" @click="cancelAction(book._id)">
+              Hủy phí
+            </button>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </template>
-
 <script>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
-import { jwtDecode } from "jwt-decode"; // Sửa thành named import
+import { jwtDecode } from "jwt-decode";
+import axios from "axios";
 
 export default {
   setup() {
     const books = ref([]);
     const filteredBooks = ref([]);
-    const isMenuOpen = ref(false);
-    const selectedCategory = ref("Tất cả");
     const router = useRouter();
     const role = ref(null);
+    const search = ref({
+      tenSach: "",
+      tacGia: "",
+      nguonGocTacGia: "",
+      nhaXuatBan: "",
+    });
+    const activeBook = ref(null);
+    let lastClickTime = null;
+    let holdTimer = null;
 
     const getUserRole = () => {
       const token = localStorage.getItem("token");
       if (token) {
         try {
-          const decoded = jwtDecode(token); // Giữ nguyên cách gọi hàm
+          const decoded = jwtDecode(token);
           role.value = decoded.role;
           console.log("Role:", role.value);
         } catch (error) {
@@ -83,29 +116,48 @@ export default {
     const fetchBooks = async () => {
       try {
         const token = localStorage.getItem("token");
-        const response = await fetch("http://localhost:3000/api/books", {
-          method: "GET",
+        const response = await axios.get("http://localhost:3000/api/books", {
           headers: {
             "Content-Type": "application/json",
-            ...(token && { "Authorization": `Bearer ${token}` }),
+            ...(token && { Authorization: `Bearer ${token}` }),
           },
         });
 
-        if (!response.ok) {
-          throw new Error(`Lỗi HTTP! Status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log("Danh sách sách từ API:", data);
-        books.value = data.map(book => ({
+        books.value = response.data.map((book) => ({
           ...book,
           image: `/Static/book/${book._id}/book_cover.png`,
-          category: book.category || "Tất cả",
         }));
-        filterBooks();
+        filteredBooks.value = books.value;
+        console.log("Danh sách sách từ API:", books.value);
       } catch (error) {
         console.error("Lỗi khi lấy sách:", error);
         books.value = [];
+        filteredBooks.value = [];
+      }
+    };
+
+    const searchBooks = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get("http://localhost:3000/api/books", {
+          params: {
+            tenSach: search.value.tenSach || undefined,
+            tacGia: search.value.tacGia || undefined,
+            nguonGocTacGia: search.value.nguonGocTacGia || undefined,
+            nhaXuatBan: search.value.nhaXuatBan || undefined,
+          },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        filteredBooks.value = response.data.map((book) => ({
+          ...book,
+          image: `/Static/book/${book._id}/book_cover.png`,
+        }));
+      } catch (error) {
+        console.error("Lỗi khi tìm kiếm sách:", error);
+        filteredBooks.value = [];
       }
     };
 
@@ -126,62 +178,43 @@ export default {
       return new Intl.NumberFormat("vi-VN").format(price);
     };
 
-    const toggleMenu = () => {
-      isMenuOpen.value = !isMenuOpen.value;
+    // Xử lý nhấp chuột liên tiếp trong 0.5 giây (dành cho máy tính)
+    const handleClick = (bookId) => {
+      const currentTime = new Date().getTime();
+      if (lastClickTime && currentTime - lastClickTime <= 500) {
+        activeBook.value = bookId;
+      }
+      lastClickTime = currentTime;
     };
 
-    const selectCategory = (category) => {
-      selectedCategory.value = category;
-      isMenuOpen.value = false;
-
-      switch (category) {
-        case "Home":
-          router.push("/");
-          break;
-        case "Mượn sách":
-          router.push("/loan");
-          break;
-        case "User":
-          router.push("/user");
-          break;
-        case "Duyệt Mượn sách":
-          router.push("/loan");
-          break;
-        case "Admin":
-          router.push("/admin");
-          break;
-        case "Quản lý User":
-          router.push("/manage-user");
-          break;
-        case "Quản lý Sách":
-          router.push("/manage-book");
-          break;
-        case "Quản lý Admin&User":
-          router.push("/manage-admin-user");
-          break;
-        case "Đăng xuất":
-          localStorage.removeItem("token");
-          router.push("/login");
-          break;
-        default:
-          filterBooks();
-          break;
-      }
+    // Xử lý nhấn giữ 1 giây (dành cho điện thoại)
+    const startHold = (bookId) => {
+      holdTimer = setTimeout(() => {
+        activeBook.value = bookId;
+      }, 1000); // 1 giây
     };
 
-    const filterBooks = () => {
-      if (selectedCategory.value === "Tất cả") {
-        filteredBooks.value = books.value;
-      } else {
-        filteredBooks.value = books.value.filter(
-          book => book.category === selectedCategory.value
-        );
-      }
+    const endHold = () => {
+      clearTimeout(holdTimer);
+    };
+
+    const registerBorrow = (bookId) => {
+      console.log(`Đăng ký mượn sách với ID: ${bookId}`);
+      activeBook.value = null; // Reset trạng thái
+    };
+
+    const cancelAction = (bookId) => {
+      console.log(`Hủy phí sách với ID: ${bookId}`);
+      activeBook.value = null; // Reset trạng thái
     };
 
     onMounted(() => {
       getUserRole();
       fetchBooks();
+    });
+
+    onUnmounted(() => {
+      clearTimeout(holdTimer);
     });
 
     return {
@@ -190,21 +223,34 @@ export default {
       getImageUrl,
       handleImageError,
       formatPrice,
-      isMenuOpen,
-      toggleMenu,
-      selectCategory,
+      search,
+      searchBooks,
       role,
+      activeBook,
+      handleClick,
+      startHold,
+      endHold,
+      registerBorrow,
+      cancelAction,
     };
   },
 };
 </script>
-
 <style scoped>
-/* Giữ nguyên style của bạn */
 .book-list {
   font-family: "Arial", sans-serif;
   padding: 20px;
-  background-color: #f9f9f9;
+  background-color: #e0e0e0;
+  min-height: 100vh;
+  position: relative;
+}
+
+.book-list.locked {
+  pointer-events: none; /* Khóa mọi thao tác khi activeBook không null */
+}
+
+.book-list.locked .book-card.active {
+  pointer-events: auto; /* Chỉ cho phép thao tác trên book-card đang active */
 }
 
 .header {
@@ -212,49 +258,49 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
+  margin-bottom: 20px;
 }
 
-h1 {
-  text-align: center;
-  color: #333;
-}
-
-.menu-toggle {
-  position: absolute;
-  right: 20px;
-  cursor: pointer;
-  font-size: 24px;
-}
-
-.hamburger {
-  color: #333;
-}
-
-.dropdown-menu {
-  position: absolute;
-  top: 40px;
-  right: 20px;
+.search-form {
   background-color: #fff;
   border: 1px solid #ddd;
   border-radius: 5px;
+  padding: 15px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+  width: 100%;
+  max-width: 1200px;
 }
 
-.dropdown-menu ul {
-  list-style: none;
-  margin: 0;
-  padding: 10px 0;
+.search-form-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 15px;
 }
 
-.dropdown-menu li {
-  padding: 10px 20px;
+.form-group {
+  flex: 1;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.search-btn {
+  background-color: #333;
+  color: white;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
   cursor: pointer;
-  color: #333;
+  height: 36px;
 }
 
-.dropdown-menu li:hover {
-  background-color: #f0f0f0;
+.search-btn:hover {
+  background-color: #555;
 }
 
 .no-books {
@@ -263,9 +309,11 @@ h1 {
 }
 
 .book-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 20px;
+  width: 100%;
+  justify-content: center;
 }
 
 .book-card {
@@ -275,15 +323,22 @@ h1 {
   overflow: hidden;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease;
+  width: 300px;
+  height: 400px;
+  position: relative;
 }
 
-.book-card:hover {
+.book-card.active {
+  transform: scale(1.1);
+}
+
+/* Chỉ áp dụng hover khi không có class locked */
+.book-list:not(.locked) .book-card:hover {
   transform: translateY(-5px);
 }
-
 .book-image {
   width: 100%;
-  height: 200px;
+  height: 300px;
   overflow: hidden;
 }
 
@@ -296,22 +351,93 @@ h1 {
 
 .book-info {
   padding: 15px;
-  text-align: center;
+  text-align: left;
+  height: calc(100% - 300px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
 }
 
-.book-info h3 {
-  font-size: 1.2rem;
+.book-details {
+  display: flex;
+  flex-direction: column;
   margin-bottom: 10px;
+}
+
+.book-title {
+  font-size: 1.2rem;
+  font-weight: bold;
   color: #333;
 }
 
-.book-info .price {
-  font-size: 1.1rem;
-  color: #e74c3c;
-  margin-bottom: 10px;
+.book-author {
+  font-size: 1rem;
+  color: #555;
 }
 
-.book-info p {
+.book-origin {
+  font-size: 1rem;
   color: #555;
+}
+
+.price-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.price {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #e74c3c;
+  margin-bottom: 20px;
+}
+
+.quantity {
+  font-size: 1rem;
+  color: #555;
+  margin-left: 10px;
+  margin-bottom: 20px;
+}
+
+.button-group {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.borrow-btn {
+  background-color: #28a745;
+  color: white;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.borrow-btn:hover {
+  background-color: #218838;
+}
+
+.cancel-btn {
+  background-color: #dc3545;
+  color: white;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-bottom: 200px;
+}
+
+.cancel-btn:hover {
+  background-color: #c82333;
 }
 </style>
