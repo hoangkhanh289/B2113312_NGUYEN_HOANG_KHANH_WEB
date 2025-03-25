@@ -70,8 +70,10 @@ export default {
           return "Quản Lý Admin & User";
         case "/login":
           return "Đăng Nhập";
+        case "/browse-books": // Thêm tiêu đề cho BrowseBooks
+          return "Duyệt Mượn Sách";
         default:
-          return "Quản Lý Mượn Sách"; // Tiêu đề mặc định
+          return "Quản Lý Mượn Sách";
       }
     });
 
@@ -134,13 +136,13 @@ export default {
           router.push("/");
           break;
         case "Mượn sách":
-          if (role.value === "user" || role.value === "admin") router.push("/loan");
+          if (role.value === "user") router.push("/loan");
           break;
         case "User":
           if (role.value === "user") router.push("/user");
           break;
         case "Duyệt Mượn sách":
-          if (role.value === "admin") router.push("/loan");
+          if (role.value === "admin") router.push("/browse-books");
           break;
         case "Admin":
           if (role.value === "admin") router.push("/admin");
@@ -186,7 +188,6 @@ export default {
 </script>
 
 <style scoped>
-/* Giữ nguyên style */
 .navbar {
   display: flex;
   justify-content: center;
@@ -204,7 +205,7 @@ export default {
 
 .nav-center h1 {
   margin: 0;
-  font-size: 5rem;
+  font-size: 2rem; /* Giảm kích thước chữ để phù hợp hơn */
 }
 
 .nav-right {
